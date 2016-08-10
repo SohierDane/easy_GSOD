@@ -79,6 +79,18 @@ def unpack_quality_flags(df):
     return df
 
 
+def missing_codes_to_nan(df):
+    """
+    Replaces NOAA's various missing data codes with nan.
+    Treats the WBAN/USAF 99999 entries as valid.
+    """
+    columns_to_ignore = ['USAF_ID_Code', 'WBAN_ID_Code', 'ID_Code']
+    columns_to_use = [x for x in df.columns if x not in columns_to_ignore]
+    df[columns_to_use] = df[columns_to_use].replace(
+        to_replace='9[.9]{3,4}9', value=nan, regex=True)
+    return df
+
+
 def add_metadata(station_ID, metadata_df, lookup_field):
     if station_ID not in metadata_df.index:
         return nan
@@ -102,6 +114,7 @@ def raw_op_to_clean_dataframe(raw_f_path, isd_history):
     df['Country_Code'] = add_metadata(station_ID, isd_history, 'CTRY')
     df['Latitude'] = add_metadata(station_ID, isd_history, 'LAT')
     df['Longitude'] = add_metadata(station_ID, isd_history, 'LON')
+    df = missing_codes_to_nan(df)
     df = reogranize_columns(df)
     return df
 

@@ -7,7 +7,6 @@ import urllib
 import gzip
 import requests
 import re
-import json
 from time import sleep
 
 
@@ -37,6 +36,7 @@ def download_gsod_yr(yr, save_dir):
         os.mkdir(os.path.join(save_dir, str(yr)))
     root_url = 'http://www1.ncdc.noaa.gov/pub/data/gsod/'
     dir_url = root_url+str(yr)+'/'
+    # this regex is to match something like 010070-99999
     regex_pattern = '\d{6}\D\d{5}\D'+str(yr)+'\.op\.gz'
     data_files_in_dir = get_urls(dir_url, regex_pattern)
     data_files_in_dir = [dir_url+fname for fname in data_files_in_dir]
@@ -57,10 +57,3 @@ def download_all_of_gsod(save_dir):
     for year in xrange(2016, 1900, -1):
         download_gsod_yr(year, save_dir)
         print "downloaded "+str(year)
-
-
-if __name__ == '__main__':
-    project_constants = json.load(open('config.json', 'r'))
-    raw_data_dlpath = project_constants['RAW_GROUND_STATION_DATA_PATH']
-    csv_export_path = project_constants['CSV_EXPORT_PATH']
-    download_all_of_gsod(raw_data_dlpath)

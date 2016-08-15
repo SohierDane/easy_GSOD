@@ -117,7 +117,7 @@ def raw_op_to_clean_dataframe(raw_f_path, isd_history):
     df['Longitude'] = add_metadata(station_ID, isd_history, 'LON')
     df = missing_codes_to_nan(df)
     df = reogranize_columns(df)
-    return df.to_csv()
+    return df.to_csv(index=False)
 
 
 def clean_bogus_name(station_name):

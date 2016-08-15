@@ -176,11 +176,6 @@ def clean_inventory_metadata(df):
 
 def load_isd_inventory(isd_path):
     """
-    Expects the .csv version of the isd-history
+    TODO: Add function to generate an accurate inventory.
     """
-    metadata_df = pd.read_csv(isd_path,
-                              dtype={col: str for col in ['USAF', 'WBAN', 'YEAR', 'JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC']})
-    metadata_df['ID'] = metadata_df['USAF']+'-'+metadata_df['WBAN']
-    metadata_df.set_index(['ID'])
-    metadata_df = clean_inventory_metadata(metadata_df)
-    return metadata_df
+    pass

@@ -11,7 +11,7 @@ import pandas as pd
 from numpy import nan
 
 
-def reogranize_columns(df):
+def reorganize_columns(df):
     header_cols = ['ID_Code', 'USAF_ID_Code', 'WBAN_ID_Code', 'Elevation', 'Country_Code',
                    'Latitude', 'Longitude', 'Date', 'Year', 'Month', 'Day',
                    'Mean_Temp', 'Mean_Temp_Count', 'Mean_Dewpoint', 'Mean_Dewpoint_Count',
@@ -116,7 +116,7 @@ def raw_op_to_clean_dataframe(raw_f_path, isd_history):
     df['Latitude'] = add_metadata(station_ID, isd_history, 'LAT')
     df['Longitude'] = add_metadata(station_ID, isd_history, 'LON')
     df = missing_codes_to_nan(df)
-    df = reogranize_columns(df)
+    df = reorganize_columns(df)
     return df.to_csv(index=False)
 
 

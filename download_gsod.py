@@ -6,7 +6,6 @@ import os.path
 import gzip
 import requests
 import tarfile
-from os import listdir
 from time import sleep
 
 root_url = 'http://www1.ncdc.noaa.gov/pub/data'
@@ -30,7 +29,7 @@ def download_isd_inventory(save_dir):
 
 def unpack(url):
     if url.find('op.gz') == -1:
-        return
+        return None
 
     with gzip.open(url, 'r') as f:
         data = f.read()

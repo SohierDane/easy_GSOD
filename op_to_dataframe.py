@@ -10,8 +10,9 @@ for the original .op specifications.
 import pandas as pd
 from numpy import nan
 
+
 def reogranize_columns(df):
-    header_cols = ['ID_Code', 'USAF_ID_Code', 'WBAN_ID_Code', 'Elevation', 'Country_Code', 
+    header_cols = ['ID_Code', 'USAF_ID_Code', 'WBAN_ID_Code', 'Elevation', 'Country_Code',
                    'Latitude', 'Longitude', 'Date', 'Year', 'Month', 'Day',
                    'Mean_Temp', 'Mean_Temp_Count', 'Mean_Dewpoint', 'Mean_Dewpoint_Count',
                    'Mean_Sea_Level_Pressure', 'Mean_Sea_Level_Pressure_Count',
@@ -33,7 +34,7 @@ def load_op_into_dataframe(raw_f_path):
         # read one line to skip past the header
         f.readline()
         data = [line.strip().split() for line in f.readlines()]
-        
+
     df = pd.DataFrame(data, dtype=str)
     df.columns = ['USAF_ID_Code', 'WBAN_ID_Code', 'yrmoda',
                    'Mean_Temp', 'Mean_Temp_Count', 'Mean_Dewpoint', 'Mean_Dewpoint_Count',
@@ -116,7 +117,7 @@ def raw_op_to_clean_dataframe(raw_f_path, isd_history):
     df['Longitude'] = add_metadata(station_ID, isd_history, 'LON')
     df = missing_codes_to_nan(df)
     df = reogranize_columns(df)
-    return df
+    return df.to_csv()
 
 
 def clean_bogus_name(station_name):
@@ -128,7 +129,7 @@ def clean_bogus_name(station_name):
         return station_name
 
 
-def clean_metadata(df):
+def clean_history_metadata(df):
     """
     Replaces all unreasonable elevation, latitude, longitude values with nan.
     Replaces all names that indicate a missing name with nan.
@@ -137,14 +138,14 @@ def clean_metadata(df):
     """
     elevation_of_lowest_pt_on_dry_land = -418
     df['ELEV(M)'] = df['ELEV(M)'].apply(lambda x:
-        x if x >= elevation_of_lowest_pt_on_dry_land else nan)
+                                        x if x >= elevation_of_lowest_pt_on_dry_land else nan)
     max_possible_lat = 90
     min_possible_lat = -90
     max_possible_lon = 180
     min_possible_lon = -180
-    df['LAT'] = df['LAT'].apply(lambda x: 
+    df['LAT'] = df['LAT'].apply(lambda x:
         x if x > min_possible_lat and x < max_possible_lat else nan)
-    df['LON'] = df['LON'].apply(lambda x: 
+    df['LON'] = df['LON'].apply(lambda x:
         x if x > min_possible_lon and x < max_possible_lon else nan)
     invalid_names = ['NAME/LOCATION UNKN', 'NAME UNKNOWN (ONC)', 'APPROXIMATE LOCATIO',
                      'APPROXIMATE LOCALE', 'APPROXIMATE LOCATION', 'NAME AND LOC UNKN',
@@ -158,9 +159,28 @@ def load_isd_history(isd_path):
     """
     Expects the .csv version of the isd-history
     """
-    metadata_df = pd.read_csv(isd_path, 
+    metadata_df = pd.read_csv(isd_path,
         dtype={col: str for col in ['USAF', 'WBAN', 'BEGIN', 'END', 'STATION NAME']})
     metadata_df['ID'] = metadata_df['USAF']+'-'+metadata_df['WBAN']
     metadata_df.set_index(['ID'])
-    metadata_df = clean_metadata(metadata_df)
+    metadata_df = clean_history_metadata(metadata_df)
+    return metadata_df
+
+
+def clean_inventory_metadata(df):
+    """
+    TODO: Should remove items that don't actually exist
+    """
+    return df
+
+
+def load_isd_inventory(isd_path):
+    """
+    Expects the .csv version of the isd-history
+    """
+    metadata_df = pd.read_csv(isd_path,
+                              dtype={col: str for col in ['USAF', 'WBAN', 'YEAR', 'JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC']})
+    metadata_df['ID'] = metadata_df['USAF']+'-'+metadata_df['WBAN']
+    metadata_df.set_index(['ID'])
+    metadata_df = clean_inventory_metadata(metadata_df)
     return metadata_df

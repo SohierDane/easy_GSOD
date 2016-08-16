@@ -1,5 +1,9 @@
 """
 Downloads a single GSOD year, untars and unzips assets.
+
+TODO: add log of which files were downloaded when so can update only those
+updated by NOAA. Will also need option to switch between bulk download
+(large .tar files) and piecemeal (small .gz files)
 """
 
 import os.path

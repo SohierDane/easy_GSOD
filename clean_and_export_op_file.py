@@ -164,8 +164,10 @@ def process_stations(stn_path_list, isd_history):
     """
     Unpack all op files in the list to .csv,
     inventory the data, return set of stations found
+
+    TODO: complete function
     """
-    
+    pass
 
 
 def clean_bogus_name(station_name):

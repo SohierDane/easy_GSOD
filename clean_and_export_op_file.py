@@ -12,6 +12,9 @@ from numpy import nan
 
 
 def reorganize_columns(df):
+    """
+    Resets the columns into a useful order.
+    """
     header_cols = ['ID_Code', 'USAF_ID_Code', 'WBAN_ID_Code', 'Elevation', 'Country_Code',
                    'Latitude', 'Longitude', 'Date', 'Year', 'Month', 'Day',
                    'Mean_Temp', 'Mean_Temp_Count', 'Mean_Dewpoint', 'Mean_Dewpoint_Count',
@@ -117,10 +120,22 @@ def raw_op_to_clean_dataframe(raw_f_path, isd_history):
     df['Longitude'] = add_metadata(station_ID, isd_history, 'LON')
     df = missing_codes_to_nan(df)
     df = reorganize_columns(df)
-    return df.to_csv(index=False)
+    return df
+
+
+def raw_op_to_clean_csv(raw_f_path, isd_history):
+    """
+    Exports .op file to a cleaned .csv
+    """
+    df = raw_op_to_clean_dataframe(raw_f_path, isd_history)
+    df.to_csv(index=False)
+    return None
 
 
 def clean_bogus_name(station_name):
+    """
+    GSOD uses 'bogus' as a keyword showing that the station name is unknown.
+    """
     if station_name is nan:
         return nan
     elif 'BOGUS' in station_name or 'UNKNOWN' in station_name:
@@ -137,8 +152,8 @@ def clean_history_metadata(df):
     https://en.wikipedia.org/wiki/Extreme_points_of_Earth#Lowest_point_.28natural.29
     """
     elevation_of_lowest_pt_on_dry_land = -418
-    df['ELEV(M)'] = df['ELEV(M)'].apply(lambda x:
-                                        x if x >= elevation_of_lowest_pt_on_dry_land else nan)
+    df['ELEV(M)'] = df['ELEV(M)'].apply(
+        lambda x: x if x >= elevation_of_lowest_pt_on_dry_land else nan)
     max_possible_lat = 90
     min_possible_lat = -90
     max_possible_lon = 180

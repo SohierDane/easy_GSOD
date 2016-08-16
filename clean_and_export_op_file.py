@@ -136,7 +136,10 @@ def raw_op_to_clean_dataframe(raw_f_path, isd_history):
 
 def inventory_stations_year(df):
     """"
-    Generates a dataframe with counts of populated fields by month
+    Generates a dataframe with counts of populated fields by month.
+
+    Mirrors the format of one row of the isd-inventory, plus a unique
+    identifier column.
     """
     idx = '-'.join(df[["ID_Code", "Year"]].iloc[0].values.tolist())
     col_names = ["JAN", "FEB", "MAR", "APR", "MAY",

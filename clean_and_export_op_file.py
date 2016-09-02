@@ -8,44 +8,90 @@ for the original .op specifications.
 """
 
 import pandas as pd
+import urllib
+import gzip
 from numpy import nan
+from StringIO import StringIO
+from time import sleep
+from ftplib import FTP
 
 
-def reorganize_columns(df):
+def get_from_NOAA_ftp(dir, file):
     """
-    Reset the columns into a useful order.
+    Downloads a file from NOAA's ftp server into a file buffer
     """
-    header_cols = ['ID_Code', 'USAF_ID_Code', 'WBAN_ID_Code', 'Elevation', 'Country_Code',
-                   'Latitude', 'Longitude', 'Date', 'Year', 'Month', 'Day',
-                   'Mean_Temp', 'Mean_Temp_Count', 'Mean_Dewpoint', 'Mean_Dewpoint_Count',
-                   'Mean_Sea_Level_Pressure', 'Mean_Sea_Level_Pressure_Count',
-                   'Mean_Station_Pressure', 'Mean_Station_Pressure_Count',
-                   'Mean_Visibility', 'Mean_Visibility_Count', 'Mean_Windspeed',
-                   'Mean_Windspeed_Count', 'Max_Windspeed', 'Max_Gust', 'Max_Temp',
-                   'Max_Temp_Quality_Flag', 'Min_Temp', 'Min_Temp_Quality_Flag',
-                   'Precipitation', 'Precip_Flag', 'Snow_Depth', 'Fog',
-                   'Rain_or_Drizzle', 'Snow_or_Ice', 'Hail', 'Thunder',
-                   'Tornado']
-    return df[header_cols]
+    ftp = FTP('ftp.ncdc.noaa.gov')
+    ftp.login()
+    ftp.cwd('/pub/data/noaa/')
+    file_buffer = StringIO()
+    ftp.retrbinary('RETR '+file, file_buffer.write)
+    file_buffer.seek(0)
+    return file_buffer
 
 
-def load_op_into_dataframe(raw_f_path):
-    """
-    Read an op file into a dataframe and adds basic headers
-    """
-    with open(raw_f_path, 'r') as f:
-        # read one line to skip past the header
-        f.readline()
-        data = [line.strip().split() for line in f.readlines()]
+def robust_get_from_NOAA_ftp(dir, file):
+    max_attempts = 10
+    for i in xrange(max_attempts):
+        try:
+            return get_from_NOAA_ftp(dir, file)
+        except:
+            sleep(10)
+            print("Error accessing "+file+", retrying")
+    # shouldn't get here
+    raise Exception('Failed to Download'+file)
 
-    df = pd.DataFrame(data, dtype=str)
-    df.columns = ['USAF_ID_Code', 'WBAN_ID_Code', 'yrmoda',
-                   'Mean_Temp', 'Mean_Temp_Count', 'Mean_Dewpoint', 'Mean_Dewpoint_Count',
-                   'Mean_Sea_Level_Pressure', 'Mean_Sea_Level_Pressure_Count',
-                   'Mean_Station_Pressure', 'Mean_Station_Pressure_Count',
-                   'Mean_Visibility', 'Mean_Visibility_Count', 'Mean_Windspeed',
-                   'Mean_Windspeed_Count', 'Max_Windspeed', 'Max_Gust', 'Max_Temp',
-                   'Min_Temp', 'Precipitation', 'Snow_Depth', 'FRSHTT']
+
+def robust_download(url):
+    """
+    Download to string buffer w/ multiple attempts
+    """
+    max_attempts = 10
+    for i in xrange(max_attempts):
+        try:
+            file_obj = StringIO(urllib.urlopen(url).read())
+            file_obj.seek(0)
+            return file_obj
+        except:
+            sleep(10)
+            print("Error accessing "+file+", retrying")
+    # shouldn't get here
+    raise Exception('Failed to Download'+file)
+
+
+def missing_codes_to_nan(df):
+    """
+    Replace NOAA's various missing data codes with nan.
+    Treat the WBAN/USAF 99999 entries as valid.
+    """
+    columns_to_ignore = ['USAF', 'WBAN', 'ID']
+    columns_to_use = [x for x in df.columns if x not in columns_to_ignore]
+    df[columns_to_use] = df[columns_to_use].replace(
+        to_replace='9[.9]{3,4}9', value=nan, regex=True)
+    return df
+
+
+def load_op_into_dataframe(raw_data_path):
+    """
+    Load an op.gz file, unzip it in memory, read it into a dataframe,
+    and adds basic headers.
+
+    If path is a url, will download the file.
+    """
+    if 'http' == raw_data_path[:len('http')]:
+        f = gzip.GzipFile(fileobj=robust_download(raw_data_path))
+    else:
+        f = open(raw_data_path, 'r')
+    # readline to drop the unwanted original unwanted header
+    f.readline()
+    df = pd.read_csv(f, dtype=str, header=None, delim_whitespace=True, names=[
+        'USAF', 'WBAN', 'yrmoda',
+        'Mean_Temp', 'Mean_Temp_Count', 'Mean_Dewpoint', 'Mean_Dewpoint_Count',
+        'Mean_Sea_Level_Pressure', 'Mean_Sea_Level_Pressure_Count',
+        'Mean_Station_Pressure', 'Mean_Station_Pressure_Count',
+        'Mean_Visibility', 'Mean_Visibility_Count', 'Mean_Windspeed',
+        'Mean_Windspeed_Count', 'Max_Windspeed', 'Max_Gust', 'Max_Temp',
+        'Min_Temp', 'Precipitation', 'Snow_Depth', 'FRSHTT'])
+    f.close()
     return df
 
 
@@ -91,16 +137,89 @@ def unpack_quality_flags(df):
     return df
 
 
-def missing_codes_to_nan(df):
+def raw_op_to_clean_dataframe(raw_data_path, isd_history):
     """
-    Replace NOAA's various missing data codes with nan.
-    Treat the WBAN/USAF 99999 entries as valid.
+    Take original NASA data, drop several columns,
+    split date into more useful formats, and load into dataframe
     """
-    columns_to_ignore = ['USAF_ID_Code', 'WBAN_ID_Code', 'ID_Code']
-    columns_to_use = [x for x in df.columns if x not in columns_to_ignore]
-    df[columns_to_use] = df[columns_to_use].replace(
-        to_replace='9[.9]{3,4}9', value=nan, regex=True)
+    df = load_op_into_dataframe(raw_data_path)
+    df['ID'] = df['USAF']+'-'+df['WBAN']
+    df = unpack_FRSHTT(df)
+    df = unpack_date_info(df)
+    df = unpack_quality_flags(df)
+    station_ID = df['ID'].iloc[0]
+    df['Elevation'] = get_metadata(station_ID, isd_history, 'ELEV(M)')
+    df['Station_Name'] = get_metadata(station_ID, isd_history, 'STATION NAME')
+    df['Country_Code'] = get_metadata(station_ID, isd_history, 'CTRY')
+    df['Latitude'] = get_metadata(station_ID, isd_history, 'LAT')
+    df['Longitude'] = get_metadata(station_ID, isd_history, 'LON')
+    df = missing_codes_to_nan(df)
+    df = reorganize_data_columns(df)
     return df
+
+
+def get_station_year_inventory(df):
+    """"
+    Generate a dataframe with counts of primary weather fields by month.
+    Ignores the count and min/max fields, precipitation type, and metadata.
+
+    Output mirrors the format of one row of the isd-inventory, plus
+    identifier columns and update logs. Assumes file was just updated if
+    it is being inventoried.
+    """
+    idx = '-'.join(df[["ID", "Year"]].iloc[0].values.tolist())
+    month_nums = [str(i).zfill(2) for i in range(1, 13)]
+    """
+    We build a dataframe initialized with zeroes to handle files
+    with missing months.
+    """
+    data = pd.DataFrame(data=0, index=[idx], columns=month_nums)
+    data.index.name = 'Station-Year'
+    cols_to_inventory = ['Mean_Temp', 'Mean_Dewpoint',
+                         'Mean_Sea_Level_Pressure', 'Mean_Station_Pressure',
+                         'Mean_Visibility', 'Mean_Windspeed', 'Precipitation',
+                         'Month']
+    counts = (df[cols_to_inventory].groupby('Month')
+              .count().sum(axis=1).to_frame(idx).T)
+    data = data.add(counts, fill_value=0)
+    data.columns = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN",
+                    "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"]
+    data = data.astype(int)
+    data["USAF"] = df["USAF"].iloc[0]
+    data["WBAN"] = df["WBAN"].iloc[0]
+    data["ID"] = df["ID"].iloc[0]
+    data["YEAR"] = df["Year"].iloc[0]
+    data['Last_Updated'] = pd.datetime.today()
+    return data
+
+
+def raw_op_to_clean_csv(raw_data_path, isd_history):
+    """
+    Export .op file to a cleaned .csv.
+
+    Return station ID as success flag.
+    """
+    df = raw_op_to_clean_dataframe(raw_data_path, isd_history)
+    df.to_csv(index=False)
+    return df['ID'].iloc[0]
+
+
+def reorganize_data_columns(df):
+    """
+    Reset the columns into a useful order.
+    """
+    header_cols = ['ID', 'USAF', 'WBAN', 'Elevation', 'Country_Code',
+                   'Latitude', 'Longitude', 'Date', 'Year', 'Month', 'Day',
+                   'Mean_Temp', 'Mean_Temp_Count', 'Mean_Dewpoint', 'Mean_Dewpoint_Count',
+                   'Mean_Sea_Level_Pressure', 'Mean_Sea_Level_Pressure_Count',
+                   'Mean_Station_Pressure', 'Mean_Station_Pressure_Count',
+                   'Mean_Visibility', 'Mean_Visibility_Count', 'Mean_Windspeed',
+                   'Mean_Windspeed_Count', 'Max_Windspeed', 'Max_Gust', 'Max_Temp',
+                   'Max_Temp_Quality_Flag', 'Min_Temp', 'Min_Temp_Quality_Flag',
+                   'Precipitation', 'Precip_Flag', 'Snow_Depth', 'Fog',
+                   'Rain_or_Drizzle', 'Snow_or_Ice', 'Hail', 'Thunder',
+                   'Tornado']
+    return df[header_cols]
 
 
 def get_metadata(station_ID, metadata_df, lookup_field):
@@ -111,66 +230,6 @@ def get_metadata(station_ID, metadata_df, lookup_field):
         return nan
     else:
         return metadata_df[lookup_field].loc[station_ID]
-
-
-def raw_op_to_clean_dataframe(raw_f_path, isd_history):
-    """
-    Take original NASA data, drops several columns,
-    split date into more useful formats, and convert to csv format
-    """
-    df = load_op_into_dataframe(raw_f_path)
-    df['ID_Code'] = df['USAF_ID_Code']+'-'+df['WBAN_ID_Code']
-    df = unpack_FRSHTT(df)
-    df = unpack_date_info(df)
-    df = unpack_quality_flags(df)
-    station_ID = df['ID_Code'].iloc[0]
-    df['Elevation'] = get_metadata(station_ID, isd_history, 'ELEV(M)')
-    df['Station_Name'] = get_metadata(station_ID, isd_history, 'STATION NAME')
-    df['Country_Code'] = get_metadata(station_ID, isd_history, 'CTRY')
-    df['Latitude'] = get_metadata(station_ID, isd_history, 'LAT')
-    df['Longitude'] = get_metadata(station_ID, isd_history, 'LON')
-    df = missing_codes_to_nan(df)
-    df = reorganize_columns(df)
-    return df
-
-
-def inventory_stations_year(df):
-    """"
-    Generates a dataframe with counts of populated fields by month.
-
-    Mirrors the format of one row of the isd-inventory, plus a unique
-    identifier column.
-    """
-    idx = '-'.join(df[["ID_Code", "Year"]].iloc[0].values.tolist())
-    col_names = ["JAN", "FEB", "MAR", "APR", "MAY",
-                 "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"]
-    data = df.groupby('Month').count().sum(axis=1).to_frame(idx).T
-    data.columns = col_names
-    data["USAF_ID_Code"] = df["USAF_ID_Code"].iloc[0]
-    data["WBAN_ID_Code"] = df["WBAN_ID_Code"].iloc[0]
-    data["Year"] = df["Year"].iloc[0]
-    return data
-
-
-def raw_op_to_clean_csv(raw_f_path, isd_history):
-    """
-    Export .op file to a cleaned .csv.
-
-    Return station ID as success flag.
-    """
-    df = raw_op_to_clean_dataframe(raw_f_path, isd_history)
-    df.to_csv(index=False)
-    return df['ID_Code'].iloc[0]
-
-
-def process_stations(stn_path_list, isd_history):
-    """
-    Unpack all op files in the list to .csv,
-    inventory the data, return set of stations found
-
-    TODO: complete function
-    """
-    pass
 
 
 def clean_bogus_name(station_name):
@@ -214,13 +273,16 @@ def clean_history_metadata(df):
     return df
 
 
-def load_isd_history(isd_path):
+def load_isd_history():
     """
-    Load & clean the raw NOAA metadata file
+    Load the isd-history metadata file directly from the NOAA server.
+    Intent of reloading from scratch every time is to take
+    advantage of any new data NOAA uploads.
 
-    Expects the .csv version of the isd-history
+    TODO: correct or delete the begin/end dates
     """
-    metadata_df = pd.read_csv(isd_path,
+    metadata_df = pd.read_csv(
+        robust_get_from_NOAA_ftp('/pub/data/noaa/', 'isd-history.csv'),
         dtype={col: str for col in ['USAF', 'WBAN', 'BEGIN', 'END', 'STATION NAME']})
     metadata_df['ID'] = metadata_df['USAF']+'-'+metadata_df['WBAN']
     metadata_df.set_index(['ID'])
@@ -228,17 +290,3 @@ def load_isd_history(isd_path):
     metadata_df = unpack_date_info(metadata_df, 'BEGIN', 'Begin_')
     metadata_df = unpack_date_info(metadata_df, 'END', 'End_')
     return metadata_df
-
-
-def clean_inventory_metadata(df):
-    """
-    TODO: Should remove items that don't actually exist
-    """
-    return df
-
-
-def load_isd_inventory(isd_path):
-    """
-    TODO: Add function to generate an accurate inventory.
-    """
-    pass

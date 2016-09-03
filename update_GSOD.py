@@ -1,5 +1,7 @@
 """
 Update the GSOD data on S3 with the latest NOAA files.
+
+TODO: add logging.
 """
 
 import pandas as pd
@@ -105,29 +107,34 @@ def identify_files_on_NOAA_server_for_year(year):
     return NOAA_files
 
 
-def update_year(year, inventory, bucket, metadata):
-    """
-    Downloads any files that have more recent versions on NOAA's server
-    than on S3, updates the inventory accordingly.
-    TODO: factor code
-    """
+def get_stations_to_update_for_year(year, inventory, bucket):
     NOAA_files = identify_files_on_NOAA_server_for_year(year)
     s3 = boto3.resource('s3')
-    initial_files = [obj.key for obj in bucket.objects.filter(
+    files_on_s3 = [obj.key for obj in bucket.objects.filter(
         Prefix=str(year)+'/')]
     IDs_to_drop = set()
-    for key in initial_files:
+    for key in files_on_s3:
         station_ID = key[key.find('/')+1:key.rfind('-')]
         if station_ID not in NOAA_files.ID.values:
             # need to remove any obsolete files
             s3.Object(bucket.name, key).delete()
             IDs_to_drop.add(station_ID)
     inventory = inventory[~((inventory.ID.isin(IDs_to_drop)) &
-        (inventory.YEAR == year))]
-    cur_yr_inventory = inventory[inventory.YEAR == year]
-    files_to_update = NOAA_files.merge(cur_yr_inventory, how='left', on='ID')
-    files_to_update = files_to_update[files_to_update['Modified'] >
-        files_to_update['Last_Updated']]
+                          (inventory.YEAR == year))]
+    files_to_update = NOAA_files.merge(inventory[inventory.YEAR == year],
+                                       how='left', on='ID')
+    files_to_update = files_to_update[
+        files_to_update['Modified'] > files_to_update['Last_Updated']]
+    return inventory, files_to_update
+
+
+def update_year(year, inventory, bucket, metadata):
+    """
+    Downloads any files that have more recent versions on NOAA's server
+    than on S3, updates the inventory accordingly.
+    """
+    inventory, files_to_update = get_stations_to_update_for_year(
+        year, inventory, bucket)
     year_url = root_gsod_url+str(year)+'/'
     for station in files_to_update['File'].values:
         station_url = year_url+station
@@ -140,10 +147,17 @@ def update_year(year, inventory, bucket, metadata):
     return inventory
 
 
-def update_metadata(metadata, inventory, bucket_name):
+def update_metadata(metadata, inventory):
+    """
+    Drop stations that are in NOAA's metadata but not actually on the FTP
+    server and add stations that were found on the FTP but not in the metadta.
+    """
     metadata = metadata[metadata.ID.isin(inventory.ID)]
-    # TODO: add rows with NA values that are in inventory but not metadata
-    df_to_csv_on_s3(metadata, bucket_name, 'isd-history.csv', False)
+    extra_stns = inventory[
+        ~inventory.ID.isin(metadata.ID)][['ID', 'USAF', 'WBAN']]
+    extra_stns.drop_duplicates(subset='ID', inplace=True)
+    extra_stns = extra_stns.reindex(columns=metadata.columns)
+    return pd.concat([extra_stns, metadata], ignore_index=True)
 
 
 def update_GSOD(bucket_name):
@@ -156,11 +170,16 @@ def update_GSOD(bucket_name):
         inventory = update_year(year, inventory, bucket, metadata)
         df_to_csv_on_s3(inventory, bucket_name, 'isd-inventory.csv', True)
         annual_logs.Modified.loc[year] = pd.datetime.today()
-        df_to_csv_on_s3(annual_logs, bucket_name, 'annual_update_log.csv', True)
+        df_to_csv_on_s3(
+            annual_logs, bucket_name, 'annual_update_log.csv', True)
     update_metadata(metadata, inventory, bucket_name)
+    df_to_csv_on_s3(metadata, bucket_name, 'isd-history.csv', False)
 
 
 def run_GSOD_update_daily(bucket_name):
+    """
+    Repeat the update once per day, indefinitely.
+    """
     seconds_per_day = 60*60*24
     while True:
         update_GSOD(bucket_name)

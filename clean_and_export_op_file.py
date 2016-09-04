@@ -5,6 +5,8 @@ and provides separate columns for each data category.
 
 Please see ftp://ftp.ncdc.noaa.gov/pub/data/gsod/readme.txt
 for the original .op specifications.
+
+TODO: clean 99.99 before splitting columns
 """
 
 import pandas as pd
@@ -63,10 +65,15 @@ def missing_codes_to_nan(df):
     Replace NOAA's various missing data codes with nan.
     Treat the WBAN/USAF 99999 entries as valid.
     """
-    columns_to_ignore = ['USAF', 'WBAN', 'ID']
+    columns_to_ignore = ['USAF', 'WBAN', 'ID', 'Date', 'Year', 'Precipitation',
+                         'Precip_Flag']
     columns_to_use = [x for x in df.columns if x not in columns_to_ignore]
     df[columns_to_use] = df[columns_to_use].replace(
         to_replace='9[.9]{3,4}9', value=nan, regex=True)
+    df['Precip_Flag'] = df['Precip_Flag'].replace(
+        to_replace='9', value=nan, regex=False)
+    df['Precipitation'] = df['Precipitation'].replace(
+        to_replace='99.9', value=nan, regex=False)
     return df
 
 

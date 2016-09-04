@@ -136,6 +136,8 @@ def update_year(year, inventory, bucket, metadata):
     inventory, files_to_update = get_stations_to_update_for_year(
         year, inventory, bucket)
     year_url = root_gsod_url+str(year)+'/'
+    print "Now updating "+str(year)
+    download_counter = 0
     for station in files_to_update['File'].values:
         station_url = year_url+station
         df = raw_op_to_clean_dataframe(station_url, metadata)
@@ -144,6 +146,9 @@ def update_year(year, inventory, bucket, metadata):
         inventory = inventory.append(df_inventory)
         key = str(year)+'/'+df.ID.iloc[0]+'.csv'
         df_to_csv_on_s3(df, bucket.name, key, False)
+        download_counter += 1
+        if download_counter % 1000 == 0:
+            print "Downloaded "+str(download_counter)+" files in "+str(year)
     return inventory
 
 

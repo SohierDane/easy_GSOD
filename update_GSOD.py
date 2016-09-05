@@ -84,8 +84,9 @@ def get_years_to_check(bucket_name):
     s3 = boto3.resource('s3')
     # if the annual logfile doesn't exist, create one
     try:
-        annual_logs = pd.read_csv(s3.Object(bucket_name,
-            'annual_update_log.csv').get()['Body'], index_col='Year',
+        annual_logs = StringIO(s3.Object(bucket_name,
+            'annual_update_log.csv').get()['Body'])
+        annual_logs = pd.read_csv(annual_logs, index_col='Year',
             parse_dates=['Modified'], infer_datetime_format=True)
     except botocore.exceptions.ClientError:
         annual_logs = deepcopy(current_yrs_data)

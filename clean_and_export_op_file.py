@@ -6,7 +6,7 @@ and provides separate columns for each data category.
 Please see ftp://ftp.ncdc.noaa.gov/pub/data/gsod/readme.txt
 for the original .op specifications.
 
-TODO: clean 99.99 before splitting columns
+TODO: add test files
 """
 
 import pandas as pd

@@ -44,8 +44,8 @@ def load_isd_inventory(bucket_name):
     """
     s3 = boto3.resource('s3')
     try:
-        inventory = (s3.Object(bucket_name, 'isd-inventory.csv')
-                     .get()['Body'].read())
+        inventory = StringIO(s3.Object(bucket_name, 'isd-inventory.csv')
+                             .get()['Body'].read())
         is_from_NOAA = False
     except botocore.exceptions.ClientError:
         # Get the current isd-inventory from NOAA's ftp server

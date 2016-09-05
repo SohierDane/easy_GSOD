@@ -87,7 +87,7 @@ def load_op_into_dataframe(raw_data_path):
     if 'http' == raw_data_path[:len('http')]:
         f = gzip.GzipFile(fileobj=robust_download(raw_data_path))
     else:
-        f = open(raw_data_path, 'r')
+        f = gzip.open(raw_data_path, 'r')
     # readline to drop the unwanted original unwanted header
     f.readline()
     df = pd.read_csv(f, dtype=str, header=None, delim_whitespace=True, names=[
@@ -286,14 +286,15 @@ def load_isd_history():
     Intent of reloading from scratch every time is to take
     advantage of any new data NOAA uploads.
 
-    TODO: correct or delete the begin/end dates
+    Also delete the begin/end columns, as they can't capture the
+    gaps in the data.
     """
     metadata_df = pd.read_csv(
         robust_get_from_NOAA_ftp('/pub/data/noaa/', 'isd-history.csv'),
         dtype={col: str for col in ['USAF', 'WBAN', 'BEGIN', 'END', 'STATION NAME']})
     metadata_df['ID'] = metadata_df['USAF']+'-'+metadata_df['WBAN']
-    metadata_df.set_index(['ID'])
+    metadata_df.set_index(['ID'], inplace=True)
     metadata_df = clean_history_metadata(metadata_df)
-    metadata_df = unpack_date_info(metadata_df, 'BEGIN', 'Begin_')
-    metadata_df = unpack_date_info(metadata_df, 'END', 'End_')
+    del metadata_df['BEGIN']
+    del metadata_df['END']
     return metadata_df

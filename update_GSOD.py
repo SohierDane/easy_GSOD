@@ -121,8 +121,8 @@ def get_stations_to_update_for_year(year, inventory, bucket):
             s3.Object(bucket.name, key).delete()
             IDs_to_drop.add(station_ID)
     inventory = inventory[~((inventory.ID.isin(IDs_to_drop)) &
-                          (inventory.YEAR == year))]
-    files_to_update = NOAA_files.merge(inventory[inventory.YEAR == year],
+                          (inventory.YEAR == str(year)))]
+    files_to_update = NOAA_files.merge(inventory[inventory.YEAR == str(year)],
                                        how='left', on='ID')
     files_to_update = files_to_update[
         files_to_update['Modified'] > files_to_update['Last_Updated']]

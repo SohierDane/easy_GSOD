@@ -85,7 +85,7 @@ def get_years_to_check(bucket_name):
     # if the annual logfile doesn't exist, create one
     try:
         annual_logs = StringIO(s3.Object(bucket_name,
-            'annual_update_log.csv').get()['Body'])
+            'annual_update_log.csv').get()['Body'].read())
         annual_logs = pd.read_csv(annual_logs, index_col='Year',
             parse_dates=['Modified'], infer_datetime_format=True)
     except botocore.exceptions.ClientError:
@@ -169,6 +169,7 @@ def update_metadata(metadata, inventory):
 def update_GSOD(bucket_name):
     inventory = load_isd_inventory(bucket_name)
     years_to_check, annual_logs = get_years_to_check(bucket_name)
+    print('Preparing to update the following years:\n'+str(years_to_check))
     s3 = boto3.resource('s3')
     bucket = s3.Bucket(bucket_name)
     metadata = load_isd_history()

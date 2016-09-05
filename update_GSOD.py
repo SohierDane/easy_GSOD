@@ -53,17 +53,23 @@ def load_isd_inventory(bucket_name):
             '/pub/data/noaa/', 'isd-inventory.csv')
         is_from_NOAA = True
     inventory = pd.read_csv(
-        inventory, dtype={col: str for col in ['USAF', 'WBAN', 'YEAR']})
+        inventory, dtype={col: str for col in ['ID', 'USAF', 'WBAN', 'YEAR']})
     if is_from_NOAA:
         """"
         Add new columns & initialize download records to date
         before NOAA ftp server existed
         """
         inventory.insert(0, 'ID', inventory['USAF']+'-'+inventory['WBAN'])
-        inventory['Last_Updated'] = pd.to_datetime(0)
         inventory['Station-Year'] = inventory['ID']+'-'+inventory['YEAR']
+        inventory['Last_Updated'] = pd.to_datetime(0)
+    else:
+        inventory['Last_Updated'] = pd.to_datetime(inventory['Last_Updated'])
     inventory.set_index('Station-Year', inplace=True)
-    return inventory
+    # ensure columns are organized properly
+    cols = ['ID', 'USAF', 'WBAN', 'YEAR', 'Last_Updated', 'JAN', 'FEB',
+            'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG',
+            'SEP', 'OCT', 'NOV', 'DEC']
+    return inventory[cols]
 
 
 def df_to_csv_on_s3(df, bucket_name, key, csv_copy_index):

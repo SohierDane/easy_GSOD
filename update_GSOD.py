@@ -7,6 +7,7 @@ TODO: add logging.
 import pandas as pd
 import boto3
 import botocore
+import sys
 from copy import deepcopy
 from StringIO import StringIO
 from time import sleep
@@ -199,3 +200,7 @@ def run_GSOD_update_daily(bucket_name):
         update_GSOD(bucket_name)
         print "GSOD updated "+str(pd.datetime.today())
         sleep(seconds_per_day)
+
+
+if __name__ == '__main__':
+    update_GSOD(sys.argv[1])

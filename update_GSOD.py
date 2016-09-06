@@ -140,10 +140,10 @@ def update_year(year, inventory, bucket, metadata):
     Downloads any files that have more recent versions on NOAA's server
     than on S3, updates the inventory accordingly.
     """
+    print "Now updating "+str(year)
     inventory, files_to_update = get_stations_to_update_for_year(
         year, inventory, bucket)
     year_url = root_gsod_url+str(year)+'/'
-    print "Now updating "+str(year)
     download_counter = 0
     for station in files_to_update['File'].values:
         station_url = year_url+station
@@ -185,6 +185,7 @@ def update_GSOD(bucket_name):
         annual_logs.Modified.loc[year] = pd.datetime.today()
         df_to_csv_on_s3(
             annual_logs, bucket_name, 'annual_update_log.csv', True)
+        print("Logs updated for "+str(year))
     update_metadata(metadata, inventory, bucket_name)
     df_to_csv_on_s3(metadata, bucket_name, 'isd-history.csv', True)
 

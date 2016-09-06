@@ -120,15 +120,14 @@ def get_stations_to_update_for_year(year, inventory, bucket):
     s3 = boto3.resource('s3')
     files_on_s3 = [obj.key for obj in bucket.objects.filter(
         Prefix=str(year)+'/')]
-    IDs_to_drop = set()
     for key in files_on_s3:
-        station_ID = key[key.find('/')+1:key.rfind('-')]
+        station_ID = key[key.find('/')+1:key.rfind('.')]
         if station_ID not in NOAA_files.ID.values:
-            # need to remove any obsolete files
+            # remove any obsolete files on s3
             s3.Object(bucket.name, key).delete()
-            IDs_to_drop.add(station_ID)
-    inventory = inventory[~((inventory.ID.isin(IDs_to_drop)) &
-                          (inventory.YEAR == str(year)))]
+    # drop rows that are in the same year but not in NOAA files
+    inventory = inventory[~(inventory.YEAR == str(year)) |
+                          inventory.ID.isin(NOAA_files.ID)]
     files_to_update = NOAA_files.merge(inventory[inventory.YEAR == str(year)],
                                        how='left', on='ID')
     files_to_update = files_to_update[

@@ -164,9 +164,9 @@ def update_metadata(metadata, inventory):
     Drop stations that are in NOAA's metadata but not actually on the FTP
     server and add stations that were found on the FTP but not in the metadta.
     """
-    metadata = metadata[metadata.ID.isin(inventory.ID)]
+    metadata = metadata[metadata.index.isin(inventory.ID)]
     extra_stns = inventory[
-        ~inventory.ID.isin(metadata.ID)][['ID', 'USAF', 'WBAN']]
+        ~inventory.ID.isin(metadata.index)][['ID', 'USAF', 'WBAN']]
     extra_stns.drop_duplicates(subset='ID', inplace=True)
     extra_stns = extra_stns.reindex(columns=metadata.columns)
     return pd.concat([extra_stns, metadata], ignore_index=True)
@@ -186,7 +186,7 @@ def update_GSOD(bucket_name):
         df_to_csv_on_s3(
             annual_logs, bucket_name, 'annual_update_log.csv', True)
     update_metadata(metadata, inventory, bucket_name)
-    df_to_csv_on_s3(metadata, bucket_name, 'isd-history.csv', False)
+    df_to_csv_on_s3(metadata, bucket_name, 'isd-history.csv', True)
 
 
 def run_GSOD_update_daily(bucket_name):

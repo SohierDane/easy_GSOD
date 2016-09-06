@@ -5,8 +5,6 @@ and provides separate columns for each data category.
 
 Please see ftp://ftp.ncdc.noaa.gov/pub/data/gsod/readme.txt
 for the original .op specifications.
-
-TODO: add test files
 """
 
 import pandas as pd
@@ -39,7 +37,7 @@ def robust_get_from_NOAA_ftp(dir, file):
         except:
             sleep(10)
             print("Error accessing "+file+", retrying")
-    # shouldn't get here
+    # shouldn't get here unless FTP server is down for a long time
     raise Exception('Failed to Download'+file)
 
 
@@ -291,7 +289,8 @@ def load_isd_history():
     """
     metadata_df = pd.read_csv(
         robust_get_from_NOAA_ftp('/pub/data/noaa/', 'isd-history.csv'),
-        dtype={col: str for col in ['USAF', 'WBAN', 'BEGIN', 'END', 'STATION NAME']})
+        dtype={col: str for col in ['USAF', 'WBAN', 'BEGIN',
+                                    'END', 'STATION NAME']})
     metadata_df['ID'] = metadata_df['USAF']+'-'+metadata_df['WBAN']
     metadata_df.set_index(['ID'], inplace=True)
     metadata_df = clean_history_metadata(metadata_df)

@@ -154,7 +154,7 @@ def update_year(year, inventory, bucket, metadata):
         key = str(year)+'/'+df.ID.iloc[0]+'.csv'
         df_to_csv_on_s3(df, bucket.name, key, False)
         download_counter += 1
-        if download_counter % 1000 == 0:
+        if download_counter % 500 == 0:
             print "Downloaded "+str(download_counter)+" files in "+str(year)
     return inventory
 

@@ -20,6 +20,14 @@ from clean_and_export_op_file import get_station_year_inventory
 root_gsod_url = 'http://www1.ncdc.noaa.gov/pub/data/gsod/'
 
 
+def organize_inventory_cols(inventory):
+    # ensure columns are organized properly
+    cols = ['ID', 'USAF', 'WBAN', 'YEAR', 'Last_Updated', 'JAN', 'FEB',
+            'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG',
+            'SEP', 'OCT', 'NOV', 'DEC']
+    return inventory[cols]
+
+
 def get_yrs_data_available():
     """
     Scrape NOAA's website to check what years have data available.
@@ -66,11 +74,8 @@ def load_isd_inventory(bucket_name):
     else:
         inventory['Last_Updated'] = pd.to_datetime(inventory['Last_Updated'])
     inventory.set_index('Station-Year', inplace=True)
-    # ensure columns are organized properly
-    cols = ['ID', 'USAF', 'WBAN', 'YEAR', 'Last_Updated', 'JAN', 'FEB',
-            'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG',
-            'SEP', 'OCT', 'NOV', 'DEC']
-    return inventory[cols]
+    inventory = organize_inventory_cols(inventory)
+    return inventory
 
 
 def df_to_csv_on_s3(df, bucket_name, key, csv_copy_index):
@@ -181,6 +186,7 @@ def update_GSOD(bucket_name):
     metadata = load_isd_history()
     for year in years_to_check:
         inventory = update_year(year, inventory, bucket, metadata)
+        inventory = organize_inventory_cols(inventory)
         df_to_csv_on_s3(inventory, bucket_name, 'isd-inventory.csv', True)
         annual_logs.Modified.loc[year] = pd.datetime.today()
         df_to_csv_on_s3(

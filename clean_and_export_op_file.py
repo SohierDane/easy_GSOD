@@ -29,16 +29,16 @@ def get_from_NOAA_ftp(dir, file):
     return file_buffer
 
 
-def robust_get_from_NOAA_ftp(dir, file):
+def robust_get_from_NOAA_ftp(dir, file_name):
     max_attempts = 10
     for i in xrange(max_attempts):
         try:
-            return get_from_NOAA_ftp(dir, file)
+            return get_from_NOAA_ftp(dir, file_name)
         except:
             sleep(10)
-            print("Error accessing "+file+", retrying")
+            print("Error accessing "+file_name+", retrying")
     # shouldn't get here unless FTP server is down for a long time
-    raise Exception('Failed to Download'+file)
+    raise Exception('Failed to Download'+file_name)
 
 
 def robust_download(url):
@@ -53,9 +53,9 @@ def robust_download(url):
             return file_obj
         except:
             sleep(10)
-            print("Error accessing "+file+", retrying")
+            print("Error accessing "+url+", retrying")
     # shouldn't get here
-    raise Exception('Failed to Download'+file)
+    raise Exception('Failed to Download'+url)
 
 
 def missing_codes_to_nan(df):

@@ -192,7 +192,7 @@ def update_GSOD(bucket_name):
         df_to_csv_on_s3(
             annual_logs, bucket_name, 'annual_update_log.csv', True)
         print("Logs updated for "+str(year))
-    update_metadata(metadata, inventory, bucket_name)
+    update_metadata(metadata, inventory)
     df_to_csv_on_s3(metadata, bucket_name, 'isd-history.csv', True)
 
 
